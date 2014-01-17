@@ -1,4 +1,4 @@
-___
+---
 language: ruby
 
 cache:
@@ -11,3 +11,7 @@ services:
   - redis-server
 
 script: "bundle exec rspec"
+
+env:
+  global:
+    REDIS_PORT=6379

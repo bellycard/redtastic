@@ -1,2 +1,2 @@
-#require internal files
+# require internal files
 require 'redistat/version'

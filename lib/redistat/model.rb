@@ -4,30 +4,52 @@ module Redistat
       # Recording
 
       def increment(params)
-        increment_counter(params, 1)
+        key_data = fill_keys_for_update(params)
+        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
       end
 
       def decrement(params)
-        increment_counter(params, -1)
+        key_data = fill_keys_for_update(params)
+        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
       end
 
       # Retrieving
 
       def find(params)
+        keys = []
+        argv = []
+
+        # Construct the key's timestamp from inputed date parameters
         timestamp = ''
         timestamp += "#{params[:year]}"
         timestamp += "-#{zeros(params[:month])}" if params[:month].present?
         timestamp += "-W#{params[:week]}"        if params[:week].present?
         timestamp += "-#{zeros(params[:day])}"   if params[:day].present?
         params.merge!(timestamp: timestamp)
-        Redistat::Connection.redis.hget(key(params), index(params[:id])).to_i
+
+        # Handle multiple ids
+        ids = id_param_to_array(params[:id])
+
+        ids.each do |id|
+          params[:id] = id
+          keys << key(params)
+          argv << index(id)
+        end
+
+        result = Redistat::ScriptManager.hmfind(keys, argv)
+
+        # If only for a single id, just return the value rather than an array
+        if result.size == 1
+          result[0]
+        else
+          result
+        end
       end
 
       def aggregate(params)
-        argv      = []
         key_data  = fill_keys_and_dates(params)
         keys      = key_data[0]
-        argv      << index(params[:id])
+        argv      = key_data[1]
 
         # If interval is present, we return a hash including the total as well as a data point for each interval.
         # Example: Visits.aggregate(start_date: 2014-01-05, end_date: 2013-01-06, id: 1, interval: :days)
@@ -46,7 +68,7 @@ module Redistat
         # }
         if params[:interval].present? && @_resolution.present?
           result       = HashWithIndifferentAccess.new
-          dates        = key_data[1]
+          dates        = key_data[2]
           data_points  = Redistat::ScriptManager.data_points_for_keys(keys, argv)
 
           # The data_points_for_keys lua script returns an array of all the data points, with one exception:
@@ -63,7 +85,8 @@ module Redistat
           result
         else
           # If interval is not present, we just return the total as an integer
-          Redistat::ScriptManager.sum(keys, argv)
+          argv.shift # Remove the number of ids from the argv array (don't need it in the sum method)
+          Redistat::ScriptManager.sum(keys, argv).to_i
         end
       end
 
@@ -81,50 +104,57 @@ module Redistat
           @_resolution = resolution_name
         end
 
-        def increment_counter(params, value)
+        def fill_keys_for_update(params)
           keys = []
           argv = []
-          if params[:timestamp].present?
-            keys << key(params, :days)   unless [:weeks, :months, :years].include?(@_resolution)
-            keys << key(params, :weeks)  unless [:months, :years].include?(@_resolution)
-            keys << key(params, :months) unless @_resolution == :years
-            keys << key(params, :years)
-          else
-            keys << key(params)
+
+          # Handle multiple keys
+          ids = id_param_to_array(params[:id])
+
+          ids.each do |id|
+            params[:id] = id
+            if params[:timestamp].present?
+              # This is for an update, so we want to build a key for each resolution that is applicable to the model
+              scoped_resolutions.each do |resolution|
+                keys << key(params, resolution)
+                argv << index(id)
+              end
+            else
+              keys << key(params)
+              argv << index(id)
+            end
           end
-          argv << index(params[:id])
-          argv << value
-          Redistat::ScriptManager.hmincrby(keys, argv)
+          [keys, argv]
         end
 
         def fill_keys_and_dates(params)
           keys  = []
           dates = []
+          argv  = []
+          ids   = id_param_to_array(params[:id])
+
+          argv << ids.size
           start_date = Date.parse(params[:start_date]) if params[:start_date].is_a?(String)
           end_date   = Date.parse(params[:end_date])   if params[:end_date].is_a?(String)
+
           if params[:interval].present?
             interval = params[:interval]
           else
             interval = @_resolution
           end
+
           current_date = start_date
           while current_date <= end_date
             params[:timestamp] = current_date
             dates << formatted_timestamp(current_date, interval)
-            # TODO: handle multiple ids here
-            # Loop through ids
-            if params[:id].is_a?(Array)
-              ids = params[:id]
-              ids.each do |id|
-                params[:id] = id
-                keys << key(params, interval)
-              end
-            else
+            ids.each do |id|
+              params[:id] = id
               keys << key(params, interval)
+              argv << index(id)
             end
             current_date = current_date.advance(interval => +1)
           end
-          [keys, dates]
+          [keys, argv, dates]
         end
 
         def key(params, interval = nil)
@@ -169,6 +199,26 @@ module Redistat
 
         def model_name
           name.underscore
+        end
+
+        def scoped_resolutions
+          case @_resolution
+          when :days
+            [:days, :weeks, :months, :years]
+          when :weeks
+            [:weeks, :months, :years]
+          when :months
+            [:months, :years]
+          when :years
+            [:years]
+          else
+            []
+          end
+        end
+
+        def id_param_to_array(param_id)
+          ids = []
+          param_id.is_a?(Array) ? ids = param_id : ids << param_id
         end
     end
   end

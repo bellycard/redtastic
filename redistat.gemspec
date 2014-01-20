@@ -1,6 +1,9 @@
+# -*- encoding: utf-8 -*-
+require File.expand_path('../lib/redistat/version', __FILE__)
+
 Gem::Specification.new do |gem|
   gem.name         = 'redistat'
-  gem.version      =  Redistat::VERSION
+  gem.version      = Redistat::VERSION
   gem.date         = '2013-01-15'
   gem.authors      = ['Joe DiVita']
   gem.email        = ['divita@bellycard.com']

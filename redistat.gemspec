@@ -1,6 +1,6 @@
 Gem::Specification.new do |gem|
   gem.name         = 'redistat'
-  gem.version      = '0.0.1'
+  gem.version      =  Redistat::VERSION
   gem.date         = '2013-01-15'
   gem.authors      = ['Joe DiVita']
   gem.email        = ['divita@bellycard.com']

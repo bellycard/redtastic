@@ -1,6 +1,24 @@
 require 'spec_helper'
 
 describe Redistat::Model do
+
+  it 'validates type' do
+    expect do
+      class InvalidType < Redistat::Model
+        type :foo
+      end
+    end.to raise_error(RuntimeError, 'foo is not a valid type')
+  end
+
+  it 'validates resolution' do
+    expect do
+      class InvalidResolution < Redistat::Model
+        type :counter
+        resolution :foo
+      end
+    end.to raise_error(RuntimeError, 'foo is not a valid resolution')
+  end
+
   context 'counter' do
     before do
       class Visits < Redistat::Model

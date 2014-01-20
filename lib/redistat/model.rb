@@ -70,10 +70,14 @@ module Redistat
       private
 
         def type(type_name)
+          types = [:counter, :unique, :mosaic]
+          fail "#{type_name} is not a valid type" unless types.include?(type_name)
           @_type = type_name
         end
 
         def resolution(resolution_name)
+          resolutions = [:days, :weeks, :months, :years]
+          fail "#{resolution_name} is not a valid resolution" unless resolutions.include?(resolution_name)
           @_resolution = resolution_name
         end
 
@@ -107,7 +111,17 @@ module Redistat
           while current_date <= end_date
             params[:timestamp] = current_date
             dates << formatted_timestamp(current_date, interval)
-            keys  << key(params, interval)
+            # TODO: handle multiple ids here
+            # Loop through ids
+            if params[:id].is_a?(Array)
+              ids = params[:id]
+              ids.each do |id|
+                params[:id] = id
+                keys << key(params, interval)
+              end
+            else
+              keys << key(params, interval)
+            end
             current_date = current_date.advance(interval => +1)
           end
           [keys, dates]

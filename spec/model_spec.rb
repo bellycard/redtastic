@@ -69,6 +69,19 @@ describe Redistat::Model do
           expect(Redistat::Connection.redis.hget(@no_resolution_key, @index)).to eq('1')
         end
       end
+
+      context 'multiple ids' do
+        before do
+          ids = [1001, 1002, 2003]
+          Visits.increment(timestamp: @timestamp, id: ids)
+        end
+
+        it 'increments the keys for each id' do
+          expect(Redistat::Connection.redis.hget(@day_key, '1')).to eq('1')
+          expect(Redistat::Connection.redis.hget(@day_key, '2')).to eq('1')
+          expect(Redistat::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('1')
+        end
+      end
     end
 
     describe '#decrement' do
@@ -91,6 +104,19 @@ describe Redistat::Model do
 
         it 'decrements the key' do
           expect(Redistat::Connection.redis.hget(@no_resolution_key, @index)).to eq('0')
+        end
+      end
+
+      context 'multiple ids' do
+        before do
+          ids = [1001, 1002, 2003]
+          Visits.decrement(timestamp: @timestamp, id: ids)
+        end
+
+        it 'decrements the keys for each id' do
+          expect(Redistat::Connection.redis.hget(@day_key, '1')).to eq('-1')
+          expect(Redistat::Connection.redis.hget(@day_key, '2')).to eq('-1')
+          expect(Redistat::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('-1')
         end
       end
     end
@@ -126,6 +152,18 @@ describe Redistat::Model do
 
         it 'finds the value for the counter' do
           expect(NoResolutions.find(id: @id)).to eq(3)
+        end
+      end
+
+      context 'mutiple ids' do
+        before do
+          2.times { Visits.increment(timestamp: @timestamp, id: 1001) }
+          Visits.increment(timestamp: @timestamp, id: 2003)
+        end
+
+        it 'returns an array of the values for each id' do
+          expected_result = [2, 1]
+          expect(Visits.find(year: 2014, month: 1, day: 5, id: [1001, 2003])).to eq(expected_result)
         end
       end
     end
@@ -272,6 +310,44 @@ describe Redistat::Model do
 
           it 'returns the correct dates for each point in the interval' do
             expect(@result[:years][0][:date]).to eq('2014')
+          end
+        end
+      end
+
+      context 'mutiple ids' do
+        before do
+          9.times { |day| Redistat::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:1", '1', 1) }
+          3.times { |day| Redistat::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:2", '3', 1) }
+          @params = { start_date: '2014-01-01', end_date: '2014-01-09', id: [1001, 2003] }
+        end
+
+        context 'when no interval is specified' do
+          it 'returns the aggregate total for both ids combined' do
+            result = Visits.aggregate(@params)
+            expect(result).to eq(12)
+          end
+        end
+
+        context 'when an interval is specified' do
+          before do
+            @result = Visits.aggregate(@params.merge!(interval: :days))
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:visits]).to eq(12)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:days].size).to eq(9)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            3.times do |num|
+              expect(@result[:days][num][:visits]).to eq(2)
+            end
+            (3..8).each do |num|
+              expect(@result[:days][num][:visits]).to eq(1)
+            end
           end
         end
       end

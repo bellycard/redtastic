@@ -9,6 +9,7 @@ describe Redistat::Connection do
 
   describe '#establish_connection' do
     before do
+      Redistat::ScriptManager.stub(:load_scripts)
       redis = Redis.new(host: 'foo', port: 9000)
       Redistat::Connection.establish_connection(redis, 'bar')
     end

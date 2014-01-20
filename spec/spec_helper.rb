@@ -12,7 +12,7 @@ redis = Redis.new(host: 'localhost', port: ENV['REDIS_PORT'])
 
 RSpec.configure do |config|
   config.before(:each) do
-    Redistat::Connection.redis = redis
-    Redis.current.flushdb
+    Redistat::Connection.establish_connection(redis, 'app1')
+    Redistat::Connection.redis.flushdb
   end
 end

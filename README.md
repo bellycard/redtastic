@@ -16,7 +16,7 @@ or in your **Gemfile**
 gem 'redistat'
 ```
 
-And run:
+and run:
 
 ```
 $ bundle install
@@ -124,6 +124,16 @@ Checkins.aggregate(id: [1001, 1002, 2003], start_date: '2013-01-01', end_date: '
 #### Unique Counters
 
 #### Mosaics
+
+### Misc
+
+#### Script Manager
+
+Performance
+-----------
+
+Contributing
+------------
 
 
 

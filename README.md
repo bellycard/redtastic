@@ -1,4 +1,4 @@
-Redistat [![Build Status](https://travis-ci.org/bellycard/redistat.png?branch=master)](https://travis-ci.org/bellycard/redistat)
+Redistat [![Build Status](https://travis-ci.org/bellycard/redistat.png?branch=master)](https://travis-ci.org/bellycard/redistat) [![Coverage Status](https://coveralls.io/repos/bellycard/redistat/badge.png)](https://coveralls.io/r/bellycard/redistat)
 ========
 
 *Some description of what this is here*

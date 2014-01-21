@@ -6,10 +6,7 @@ module Redistat
       def increment(params)
         key_data = fill_keys_for_update(params)
         if @_type == :unique
-          args = []
-          args << 1
-          args << index_for_unique_id(params[:unique_id])
-          Redistat::ScriptManager.msetbit(key_data[0], args)
+          adjust_unique_counter(params, key_data[0], 1)
         else
           Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
         end
@@ -17,7 +14,11 @@ module Redistat
 
       def decrement(params)
         key_data = fill_keys_for_update(params)
-        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+        if @_type == :unique
+          adjust_unique_counter(params, key_data[0], 0)
+        else
+          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+        end
       end
 
       # Retrieving
@@ -253,6 +254,13 @@ module Redistat
           key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
           key += "#{model_name}:"
           key + 'unique_ids'
+        end
+
+        def adjust_unique_counter(params, keys, value)
+          args = []
+          args << value
+          args << set_index_for_unique_id(params[:unique_id])
+          Redistat::ScriptManager.msetbit(keys, args)
         end
     end
   end

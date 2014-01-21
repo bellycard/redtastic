@@ -371,29 +371,31 @@ describe Redistat::Model do
     end
 
     describe '#increment' do
-      before do
-        Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
-        Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user2)
-      end
+      context 'single ids' do
+        before do
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user2)
+        end
 
-      it 'increments user1 by setting the bit at index 0 to 1' do
-        expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(1)
-      end
+        it 'increments user1 by setting the bit at index 0 to 1' do
+          expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(1)
+        end
 
-      it 'increments user2 by setting the bit at index 1 to 1' do
-        expect(Redistat::Connection.redis.getbit(@day_key, 1)).to eq(1)
-      end
+        it 'increments user2 by setting the bit at index 1 to 1' do
+          expect(Redistat::Connection.redis.getbit(@day_key, 1)).to eq(1)
+        end
 
-      it 'increments the bit on the week key' do
-        expect(Redistat::Connection.redis.getbit(@week_key, 0)).to eq(1)
-      end
+        it 'increments the bit on the week key' do
+          expect(Redistat::Connection.redis.getbit(@week_key, 0)).to eq(1)
+        end
 
-      it 'increments the bit on the month key' do
-        expect(Redistat::Connection.redis.getbit(@month_key, 0)).to eq(1)
-      end
+        it 'increments the bit on the month key' do
+          expect(Redistat::Connection.redis.getbit(@month_key, 0)).to eq(1)
+        end
 
-      it 'increments the bit on the year key' do
-        expect(Redistat::Connection.redis.getbit(@year_key, 0)).to eq(1)
+        it 'increments the bit on the year key' do
+          expect(Redistat::Connection.redis.getbit(@year_key, 0)).to eq(1)
+        end
       end
 
       context 'multiple ids' do
@@ -410,6 +412,17 @@ describe Redistat::Model do
     end
 
     describe '#decrement' do
+      before do
+        # First set the bit to 1
+        Redistat::Connection.redis.setbit(@day_key, 0, 1)
+      end
+
+      it 'decrements user1 by setting the bit at index 0 to 0' do
+        # Make sure it was properly set to 1 first
+        expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(1)
+        Customers.decrement(id: @id, timestamp: @timestamp, unique_id: @user1)
+        expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(0)
+      end
     end
 
     describe '#find' do

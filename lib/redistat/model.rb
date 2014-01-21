@@ -5,12 +5,24 @@ module Redistat
 
       def increment(params)
         key_data = fill_keys_for_update(params)
-        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+        if @_type == :unique
+          argv = []
+          argv << params[:unique_id]
+          Redistat::ScriptManager.msadd(key_data[0], argv)
+        else
+          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+        end
       end
 
       def decrement(params)
         key_data = fill_keys_for_update(params)
-        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+        if @_type == :unique
+          argv = []
+          argv << params[:unique_id]
+          Redistat::ScriptManager.msrem(key_data[0], argv)
+        else
+          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+        end
       end
 
       # Retrieving
@@ -36,7 +48,13 @@ module Redistat
           argv << index(id)
         end
 
-        result = Redistat::ScriptManager.hmfind(keys, argv)
+        if @_type == :unique
+          unique_argv = []
+          unique_argv << params[:unique_id]
+          result = Redistat::ScriptManager.msismember(keys, unique_argv)
+        else
+          result = Redistat::ScriptManager.hmfind(keys, argv)
+        end
 
         # If only for a single id, just return the value rather than an array
         if result.size == 1
@@ -49,7 +67,6 @@ module Redistat
       def aggregate(params)
         key_data  = fill_keys_and_dates(params)
         keys      = key_data[0]
-        argv      = key_data[1]
 
         # If interval is present, we return a hash including the total as well as a data point for each interval.
         # Example: Visits.aggregate(start_date: 2014-01-05, end_date: 2013-01-06, id: 1, interval: :days)
@@ -67,10 +84,17 @@ module Redistat
         #    ]
         # }
         if params[:interval].present? && @_resolution.present?
-          result       = HashWithIndifferentAccess.new
-          dates        = key_data[2]
-          data_points  = Redistat::ScriptManager.data_points_for_keys(keys, argv)
+          if @_type == :unique
+            argv = []
+            argv << key_data[1].shift # Only need the # of business ids (which is 1st element) from key_data[1]
+            argv << temp_key
+            data_points = Redistat::ScriptManager.union_data_points_for_keys(keys, argv)
+          else
+            data_points = Redistat::ScriptManager.data_points_for_keys(keys, key_data[1])
+          end
 
+          result = HashWithIndifferentAccess.new
+          dates  = key_data[2]
           # The data_points_for_keys lua script returns an array of all the data points, with one exception:
           # the value at index 0 is the total across all the data points, so we pop it off of the data points array.
           result[model_name]         = data_points.shift
@@ -85,8 +109,14 @@ module Redistat
           result
         else
           # If interval is not present, we just return the total as an integer
-          argv.shift # Remove the number of ids from the argv array (don't need it in the sum method)
-          Redistat::ScriptManager.sum(keys, argv).to_i
+          if @_type == :unique
+            argv = []
+            argv << temp_key
+            Redistat::ScriptManager.msunion(keys, argv)
+          else
+            key_data[1].shift # Remove the number of ids from the argv array (don't need it in the sum method)
+            Redistat::ScriptManager.sum(keys, key_data[1]).to_i
+          end
         end
       end
 
@@ -166,7 +196,11 @@ module Redistat
             timestamp = formatted_timestamp(params[:timestamp], interval) if interval.present?
             key += "#{timestamp}:"
           end
-          key + "#{bucket(params[:id])}"
+          if @_type == :counter
+            key + "#{bucket(params[:id])}"
+          else
+            key + "#{params[:id]}"
+          end
         end
 
         def formatted_timestamp(timestamp, interval)
@@ -219,6 +253,11 @@ module Redistat
         def id_param_to_array(param_id)
           ids = []
           param_id.is_a?(Array) ? ids = param_id : ids << param_id
+        end
+
+        def temp_key
+          seed = Array.new(8) { [*'a'..'z'].sample }.join
+          "temp:#{seed}"
         end
     end
   end

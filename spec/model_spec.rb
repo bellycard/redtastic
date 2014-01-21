@@ -353,4 +353,283 @@ describe Redistat::Model do
       end
     end
   end
+
+  context 'unique counter' do
+    before do
+      class Customers < Redistat::Model
+        type :unique
+        resolution :days
+      end
+      @id                 = 1001
+      @timestamp          = '2014-01-05'
+      @user1              = 4321
+      @user2              = 8765
+      @day_key            = 'app1:customers:2014-01-05:1001'
+      @week_key           = 'app1:customers:2014-W1:1001'
+      @month_key          = 'app1:customers:2014-01:1001'
+      @year_key           = 'app1:customers:2014:1001'
+    end
+
+    describe '#increment' do
+      context 'single ids' do
+        before do
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user2)
+        end
+
+        it 'adds user 1 to the set' do
+          expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
+        end
+
+        it 'adds user 2 to the set' do
+          expect(Redistat::Connection.redis.sismember(@day_key, @user2)).to be true
+        end
+
+        it 'adds user 1 to the weekly set' do
+          expect(Redistat::Connection.redis.sismember(@week_key, @user1)).to be true
+        end
+
+        it 'adds user 1 to the monthly set' do
+          expect(Redistat::Connection.redis.sismember(@month_key, @user1)).to be true
+        end
+
+        it 'adds user 1 to the yearly set' do
+          expect(Redistat::Connection.redis.sismember(@year_key, @user1)).to be true
+        end
+      end
+
+      context 'multiple ids' do
+        before do
+          ids = [1001, 1002]
+          Customers.increment(id: ids, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'increments bits on both keys' do
+          expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
+          expect(Redistat::Connection.redis.sismember('app1:customers:2014-01-05:1002', @user1)).to be true
+        end
+      end
+    end
+
+    describe '#decrement' do
+      before do
+        # First add user 1
+        Redistat::Connection.redis.sadd(@day_key, @user1)
+      end
+
+      it 'decrements user1 removing it from the set' do
+        # Make sure it was properly added first
+        expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
+        Customers.decrement(id: @id, timestamp: @timestamp, unique_id: @user1)
+        expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be false
+      end
+    end
+
+    describe '#find' do
+      context 'single ids' do
+        before do
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'finds the value for a unique id on a single day' do
+          expect(Customers.find(id: @id, year: 2014, month: 1, day: 5, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, month: 1, day: 5, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single week' do
+          expect(Customers.find(id: @id, year: 2014, week: 1, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, week: 1, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single month' do
+          expect(Customers.find(id: @id, year: 2014, month: 1, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, month: 1, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single year' do
+          expect(Customers.find(id: @id, year: 2014, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, unique_id: 1)).to eq(0)
+        end
+      end
+
+      context 'mutiple ids' do
+        before do
+          2.times { Customers.increment(id: 1001, timestamp: @timestamp, unique_id: @user1) }
+          Customers.increment(id: 1002, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'returns an array of the values for each id' do
+          expected_result = [1, 1, 0]
+          params = { id: [1001, 1002, 1003], year: 2014, month: 1, day: 5, unique_id: @user1 }
+          expect(Customers.find(params)).to eq(expected_result)
+        end
+      end
+    end
+
+    describe '#aggregate' do
+      context 'when no interval is specified' do
+        it 'returns the total over the date range' do
+          9.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user1) }
+          3.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user2) }
+          result = Redistat::Connection.redis.sunion("app1:customers:")
+          result = Customers.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
+          expect(result).to eq(2)
+        end
+
+        it 'returns the correct total over the date range when the resolution is weeks' do
+          class Foo < Redistat::Model
+            type :unique
+            resolution :weeks
+          end
+          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user1) }
+          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user2) }
+          result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
+          expect(result).to eq(2)
+        end
+
+        it 'returns the correct total over the date range when the resolution is months' do
+          class Foo < Redistat::Model
+            type :unique
+            resolution :months
+          end
+          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user1) }
+          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user2) }
+          result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
+          expect(result).to eq(2)
+        end
+
+        it 'returns the correct total over the date range when the resolution is years' do
+          class Foo < Redistat::Model
+            type :unique
+            resolution :years
+          end
+          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014:#{@id}", @user1) }
+          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014:#{@id}", @user2) }
+          result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
+          expect(result).to eq(2)
+        end
+      end
+
+      context 'when interval is specified' do
+        before do
+          @params = { start_date: '2014-01-01', end_date: '2014-01-09', id: @id }
+          9.times { |day| Customers.increment(id: @id, timestamp: "2014-01-0#{day + 1}", unique_id: @user1) }
+          3.times { |day| Customers.increment(id: @id, timestamp: "2014-01-0#{day + 1}", unique_id: @user2) }
+        end
+
+        context 'and is days' do
+          before do
+            @params[:interval] = :days
+            @result = Customers.aggregate(@params)
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(2)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:days].size).to eq(9)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            3.times { |num| expect(@result[:days][num][:customers]).to eq(2) }
+            6.times { |num| expect(@result[:days][num + 3][:customers]).to eq(1) }
+          end
+
+          it 'returns the correct dates for each point in the interval' do
+            current_date = Date.parse(@params[:start_date])
+            @result[:days].each do |day|
+              expect(day[:date]).to eq(current_date.strftime('%Y-%m-%d'))
+              current_date = current_date.advance(days: +1)
+            end
+          end
+        end
+
+        context 'and is weeks' do
+          before do
+            @params[:interval] = :weeks
+            @result = Customers.aggregate(@params)
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(2)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:weeks].size).to eq(2)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            expect(@result[:weeks][0][:customers]).to eq(2)
+            expect(@result[:weeks][1][:customers]).to eq(1)
+          end
+
+          it 'returns the correct dates for each point in the interval' do
+            expect(@result[:weeks][0][:date]).to eq('2014-W1')
+            expect(@result[:weeks][1][:date]).to eq('2014-W2')
+          end
+        end
+
+        context 'and is years' do
+          before do
+            @params[:interval] = :years
+            @result = Customers.aggregate(@params)
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(2)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:years].size).to eq(1)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            expect(@result[:years][0][:customers]).to eq(2)
+          end
+
+          it 'returns the correct dates for each point in the interval' do
+            expect(@result[:years][0][:date]).to eq('2014')
+          end
+        end
+      end
+
+      context 'multiple ids' do
+        before do
+          9.times do |day|
+            Customers.increment(id: 1001, timestamp: "2014-01-0#{day + 1}", unique_id: @user1)
+            Customers.increment(id: 1002, timestamp: "2014-01-0#{day + 1}", unique_id: @user1)
+          end
+          3.times { |day| Customers.increment(id: 1001, timestamp: "2014-01-0#{day + 1}", unique_id: @user2) }
+          @params = { start_date: '2014-01-01', end_date: '2014-01-09', id: [1001, 2003] }
+        end
+
+        context 'when no interval is specified' do
+          it 'returns the aggregate total for both ids combined' do
+            result = Customers.aggregate(@params)
+            expect(result).to eq(2)
+          end
+        end
+
+        context 'when an interval is specified' do
+          before do
+            @result = Customers.aggregate(@params.merge!(interval: :days))
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(2)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:days].size).to eq(9)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            3.times { |num| expect(@result[:days][num][:customers]).to eq(2) }
+            (3..8).each { |num| expect(@result[:days][num][:customers]).to eq(1) }
+          end
+        end
+      end
+    end
+  end
 end

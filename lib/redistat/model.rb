@@ -5,7 +5,14 @@ module Redistat
 
       def increment(params)
         key_data = fill_keys_for_update(params)
-        Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+        if @_type == :unique
+          args = []
+          args << 1
+          args << index_for_unique_id(params[:unique_id])
+          Redistat::ScriptManager.msetbit(key_data[0], args)
+        else
+          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+        end
       end
 
       def decrement(params)
@@ -166,7 +173,11 @@ module Redistat
             timestamp = formatted_timestamp(params[:timestamp], interval) if interval.present?
             key += "#{timestamp}:"
           end
-          key + "#{bucket(params[:id])}"
+          if @_type == :counter
+            key + "#{bucket(params[:id])}"
+          else
+            key + "#{params[:id]}"
+          end
         end
 
         def formatted_timestamp(timestamp, interval)
@@ -219,6 +230,29 @@ module Redistat
         def id_param_to_array(param_id)
           ids = []
           param_id.is_a?(Array) ? ids = param_id : ids << param_id
+        end
+
+        def set_index_for_unique_id(unique_id)
+          # TODO: Combine this into a Lua script for less requests?
+          index = Redistat::Connection.redis.hlen(unique_ids_key)
+          Redistat::Connection.redis.hset(unique_ids_key, unique_id, index)
+          index
+        end
+
+        def index_for_unique_id(unique_id)
+          res = Redistat::Connection.redis.hget(unique_ids_key, unique_id)
+          if res.present?
+            res
+          else
+            set_index_for_unique_id(unique_id)
+          end
+        end
+
+        def unique_ids_key
+          key = ''
+          key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
+          key += "#{model_name}:"
+          key + 'unique_ids'
         end
     end
   end

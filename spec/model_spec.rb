@@ -353,4 +353,69 @@ describe Redistat::Model do
       end
     end
   end
+
+  context 'unique counter' do
+    before do
+      class Customers < Redistat::Model
+        type :unique
+        resolution :days
+      end
+      @id                 = 1001
+      @timestamp          = '2014-01-05'
+      @user1              = 4321
+      @user2              = 8765
+      @day_key            = 'app1:customers:2014-01-05:1001'
+      @week_key           = 'app1:customers:2014-W1:1001'
+      @month_key          = 'app1:customers:2014-01:1001'
+      @year_key           = 'app1:customers:2014:1001'
+    end
+
+    describe '#increment' do
+      before do
+        Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
+        Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user2)
+      end
+
+      it 'increments user1 by setting the bit at index 0 to 1' do
+        expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(1)
+      end
+
+      it 'increments user2 by setting the bit at index 1 to 1' do
+        expect(Redistat::Connection.redis.getbit(@day_key, 1)).to eq(1)
+      end
+
+      it 'increments the bit on the week key' do
+        expect(Redistat::Connection.redis.getbit(@week_key, 0)).to eq(1)
+      end
+
+      it 'increments the bit on the month key' do
+        expect(Redistat::Connection.redis.getbit(@month_key, 0)).to eq(1)
+      end
+
+      it 'increments the bit on the year key' do
+        expect(Redistat::Connection.redis.getbit(@year_key, 0)).to eq(1)
+      end
+
+      context 'multiple ids' do
+        before do
+          ids = [1001, 1002]
+          Customers.increment(id: ids, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'increments bits on both keys' do
+          expect(Redistat::Connection.redis.getbit(@day_key, 0)).to eq(1)
+          expect(Redistat::Connection.redis.getbit('app1:customers:2014-01-05:1002', 0)).to eq(1)
+        end
+      end
+    end
+
+    describe '#decrement' do
+    end
+
+    describe '#find' do
+    end
+
+    describe '#aggregate' do
+    end
+  end
 end

@@ -426,6 +426,44 @@ describe Redistat::Model do
     end
 
     describe '#find' do
+      context 'single ids' do
+        before do
+          Customers.increment(id: @id, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'finds the value for a unique id on a single day' do
+          expect(Customers.find(id: @id, year: 2014, month: 1, day: 5, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, month: 1, day: 5, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single week' do
+          expect(Customers.find(id: @id, year: 2014, week: 1, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, week: 1, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single month' do
+          expect(Customers.find(id: @id, year: 2014, month: 1, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, month: 1, unique_id: 1)).to eq(0)
+        end
+
+        it 'finds the value for a unique id in a single year' do
+          expect(Customers.find(id: @id, year: 2014, unique_id: @user1)).to eq(1)
+          expect(Customers.find(id: @id, year: 2014, unique_id: 1)).to eq(0)
+        end
+      end
+
+      context 'mutiple ids' do
+        before do
+          2.times { Customers.increment(id: 1001, timestamp: @timestamp, unique_id: @user1) }
+          Customers.increment(id: 1002, timestamp: @timestamp, unique_id: @user1)
+        end
+
+        it 'returns an array of the values for each id' do
+          expected_result = [1, 1, 0]
+          params = { id: [1001, 1002, 1003], year: 2014, month: 1, day: 5, unique_id: @user1 }
+          expect(Customers.find(params)).to eq(expected_result)
+        end
+      end
     end
 
     describe '#aggregate' do

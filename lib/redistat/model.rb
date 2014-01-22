@@ -44,7 +44,14 @@ module Redistat
           argv << index(id)
         end
 
-        result = Redistat::ScriptManager.hmfind(keys, argv)
+        if @_type == :unique
+          argv = []
+          argv << unique_ids_key
+          argv << params[:unique_id]
+          result = Redistat::ScriptManager.mgetbit(keys, argv)
+        else
+          result = Redistat::ScriptManager.hmfind(keys, argv)
+        end
 
         # If only for a single id, just return the value rather than an array
         if result.size == 1
@@ -233,22 +240,6 @@ module Redistat
           param_id.is_a?(Array) ? ids = param_id : ids << param_id
         end
 
-        def set_index_for_unique_id(unique_id)
-          # TODO: Combine this into a Lua script for less requests?
-          index = Redistat::Connection.redis.hlen(unique_ids_key)
-          Redistat::Connection.redis.hset(unique_ids_key, unique_id, index)
-          index
-        end
-
-        def index_for_unique_id(unique_id)
-          res = Redistat::Connection.redis.hget(unique_ids_key, unique_id)
-          if res.present?
-            res
-          else
-            set_index_for_unique_id(unique_id)
-          end
-        end
-
         def unique_ids_key
           key = ''
           key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
@@ -258,8 +249,9 @@ module Redistat
 
         def adjust_unique_counter(params, keys, value)
           args = []
+          args << unique_ids_key
           args << value
-          args << set_index_for_unique_id(params[:unique_id])
+          args << params[:unique_id]
           Redistat::ScriptManager.msetbit(keys, args)
         end
     end

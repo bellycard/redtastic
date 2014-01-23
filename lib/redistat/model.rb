@@ -6,7 +6,9 @@ module Redistat
       def increment(params)
         key_data = fill_keys_for_update(params)
         if @_type == :unique
-          adjust_unique_counter(params, key_data[0], 1)
+          argv = []
+          argv << params[:unique_id]
+          Redistat::ScriptManager.msadd(key_data[0], argv)
         else
           Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
         end
@@ -15,7 +17,9 @@ module Redistat
       def decrement(params)
         key_data = fill_keys_for_update(params)
         if @_type == :unique
-          adjust_unique_counter(params, key_data[0], 0)
+          argv = []
+          argv << params[:unique_id]
+          Redistat::ScriptManager.msrem(key_data[0], argv)
         else
           Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
         end
@@ -45,10 +49,9 @@ module Redistat
         end
 
         if @_type == :unique
-          argv = []
-          argv << unique_ids_key
-          argv << params[:unique_id]
-          result = Redistat::ScriptManager.mgetbit(keys, argv)
+          unique_argv = []
+          unique_argv << params[:unique_id]
+          result = Redistat::ScriptManager.msismember(keys, unique_argv)
         else
           result = Redistat::ScriptManager.hmfind(keys, argv)
         end
@@ -64,7 +67,6 @@ module Redistat
       def aggregate(params)
         key_data  = fill_keys_and_dates(params)
         keys      = key_data[0]
-        argv      = key_data[1]
 
         # If interval is present, we return a hash including the total as well as a data point for each interval.
         # Example: Visits.aggregate(start_date: 2014-01-05, end_date: 2013-01-06, id: 1, interval: :days)
@@ -82,10 +84,17 @@ module Redistat
         #    ]
         # }
         if params[:interval].present? && @_resolution.present?
-          result       = HashWithIndifferentAccess.new
-          dates        = key_data[2]
-          data_points  = Redistat::ScriptManager.data_points_for_keys(keys, argv)
+          if @_type == :unique
+            argv = []
+            argv << key_data[1].shift # Only need the # of business ids (which is 1st element) from key_data[1]
+            argv << temp_key
+            data_points = Redistat::ScriptManager.union_data_points_for_keys(keys, argv)
+          else
+            data_points = Redistat::ScriptManager.data_points_for_keys(keys, key_data[1])
+          end
 
+          result = HashWithIndifferentAccess.new
+          dates  = key_data[2]
           # The data_points_for_keys lua script returns an array of all the data points, with one exception:
           # the value at index 0 is the total across all the data points, so we pop it off of the data points array.
           result[model_name]         = data_points.shift
@@ -100,8 +109,14 @@ module Redistat
           result
         else
           # If interval is not present, we just return the total as an integer
-          argv.shift # Remove the number of ids from the argv array (don't need it in the sum method)
-          Redistat::ScriptManager.sum(keys, argv).to_i
+          if @_type == :unique
+            argv = []
+            argv << temp_key
+            Redistat::ScriptManager.msunion(keys, argv)
+          else
+            key_data[1].shift # Remove the number of ids from the argv array (don't need it in the sum method)
+            Redistat::ScriptManager.sum(keys, key_data[1]).to_i
+          end
         end
       end
 
@@ -240,19 +255,9 @@ module Redistat
           param_id.is_a?(Array) ? ids = param_id : ids << param_id
         end
 
-        def unique_ids_key
-          key = ''
-          key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
-          key += "#{model_name}:"
-          key + 'unique_ids'
-        end
-
-        def adjust_unique_counter(params, keys, value)
-          args = []
-          args << unique_ids_key
-          args << value
-          args << params[:unique_id]
-          Redistat::ScriptManager.msetbit(keys, args)
+        def temp_key
+          seed = Array.new(8) { [*'a'..'z'].sample }.join
+          "temp:#{seed}"
         end
     end
   end

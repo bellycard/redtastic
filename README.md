@@ -48,7 +48,7 @@ The class must inherit from Redistat::Model and provide some attributes:
 * **type:** *Required*.  The data type of the model.  Valid values include:
   * :counter
   * :unique
-  * :mosaic (more on types below).
+  * :mosaic (more on types [below](https://github.com/bellycard/redistat#redistat-types)).
 * **resolution:** *Optional*.  The degree of fidelity you would like to store this model at.  Valid values include:
   * :days
   * :weeks
@@ -90,7 +90,7 @@ Checkins.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-05', inte
 
 ### Multiple Ids
 
-*The above methods also have support for multiple ids*.
+The above methods also have support for multiple ids.
 
 Incrementing / decrementing multiple ids in one request:
 
@@ -121,7 +121,39 @@ Checkins.aggregate(id: [1001, 1002, 2003], start_date: '2013-01-01', end_date: '
 
 #### Counters
 
+Counters are just what they appear to be - counters of things.  Examples of using counters is shown in the previous two sections.
+
 #### Unique Counters
+
+Unique counters are used when an event with the same unique_id should not be counted twice. A general example of this could be a counter for the number of users that visited a place. In this case the "id" parameter would represent the id of the place and the unique_id would be the users id.
+
+**Examples**
+
+Incrementing / Decrementing (adding / removing a unique_id from a set for a particular id / time):
+``` ruby
+Customers.increment(id: 1, timestamp: '2014-01-05', unique_id: 1000)
+Customers.decrement(id: 1, timestamp: '2014-01-05', unique_id: 1000)
+```
+
+Find:
+``` ruby
+Customers.find(id: 1, year: 2014, month: 1, day: 5, unique_id: 1000) # Returns true or false
+```
+
+Find the aggregate total over a datespan (this would only return the *unique* aggregate total):
+``` ruby
+Customers.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-05')
+```
+
+Find the aggregate total + data points for each point at a specified interval (again, this returns not only the unique aggregate total, but also the unique total for each interval data point ~ being each day / week / month / year...etc)
+``` ruby
+Customers.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-05', interval: :days)
+```
+
+Unique counters also support querying mutiple ids.  For example, we can find the unique aggregate totals across multiple ids by doing:
+``` ruby
+Customers.aggregate(id: [1,2,3], start_date: '2014-01-01', end_date: '2014-01-05', interval: :days)
+```
 
 #### Mosaics
 
@@ -129,11 +161,34 @@ Checkins.aggregate(id: [1001, 1002, 2003], start_date: '2013-01-01', end_date: '
 
 #### Script Manager
 
+Redistat also provides access to the *Redistat::ScriptManager* class which it uses internally to pre-load & provide an interface to running Lua Scripts on Redis.  Although it is used by Redistat to run its own scripts, anybody can use it to run their own custom scripts defined in their application:
+
+Create a script: *./lib/scripts/hello.lua*
+``` lua
+return 'hello'
+```
+Tell ScriptManager to pre-load your scripts (after initializing Redistat)
+``` ruby
+  Redistat::ScriptManager.load_scripts('./lib/scripts')
+```
+
+Now you can easily use your script anywhere in your application:
+``` ruby
+  puts Redistat::ScriptManager.hello # prints 'hello'
+```
+
 Performance
 -----------
 
 Contributing
 ------------
+
+TODOS
+-----
+* Set elapsed expiration times for each resolution of a model (ie. keys of resolution days expire in 1 year, months expire in 2 years...etc).
+* For large, multi-id aggregations, set batch size & do aggregations in serveral batches rather than all in one lua run to prevent long running lua scripts from blocking any other redis operation.
+* Support for hourly resolutions
+
 
 
 

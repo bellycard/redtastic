@@ -177,6 +177,13 @@ Now you can easily use your script anywhere in your application:
   puts Redistat::ScriptManager.hello # prints 'hello'
 ```
 
+with every script having the ability to accept parameters for the KEYS & ARGV arrays:
+```ruby
+  keys = []
+  argv = []
+  Redistat::ScriptManager.hello(keys, argv)
+```
+
 Performance
 -----------
 

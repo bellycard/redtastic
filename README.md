@@ -169,12 +169,19 @@ return 'hello'
 ```
 Tell ScriptManager to pre-load your scripts (after initializing Redistat)
 ``` ruby
-  Redistat::ScriptManager.load_scripts('./lib/scripts')
+Redistat::ScriptManager.load_scripts('./lib/scripts')
 ```
 
 Now you can easily use your script anywhere in your application:
 ``` ruby
-  puts Redistat::ScriptManager.hello # prints 'hello'
+puts Redistat::ScriptManager.hello # prints 'hello'
+```
+
+with every script having the ability to accept parameters for the KEYS & ARGV arrays:
+```ruby
+  keys = []
+  argv = []
+  Redistat::ScriptManager.hello(keys, argv)
 ```
 
 Performance

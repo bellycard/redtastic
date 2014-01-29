@@ -6,10 +6,10 @@ Gem::Specification.new do |gem|
   gem.version      = Redtastic::VERSION
   gem.date         = '2013-01-15'
   gem.authors      = ['Joe DiVita']
-  gem.email        = ['divita@bellycard.com']
-  gem.description  = %q{ A simple layer on top of Redis for serving quantitative analytics }
-  gem.summary      = %q{ A simple layer on top of Redis for serving quantitative analytics }
-  gem.homepage     = ''
+  gem.email        = ['joediv31@gmail.com']
+  gem.description  = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
+  gem.summary      = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
+  gem.homepage     = 'https://github.com/bellycard/redtastic'
   gem.files        = ['lib/redtastic.rb']
 
   gem.add_dependency 'redis'

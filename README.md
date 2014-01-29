@@ -1,7 +1,11 @@
-Redistat [![Build Status](https://travis-ci.org/bellycard/redistat.png?branch=master)](https://travis-ci.org/bellycard/redistat) [![Coverage Status](https://coveralls.io/repos/bellycard/redistat/badge.png)](https://coveralls.io/r/bellycard/redistat)
+Redistat [![Build Status](https://travis-ci.org/bellycard/redistat.png?branch=master)](https://travis-ci.org/bellycard/redistat) [![Coverage Status](https://coveralls.io/repos/bellycard/redistat/badge.png?branch=master)](https://coveralls.io/r/bellycard/redistat?branch=master)
 ========
 
-*Some description of what this is here*
+Redistat!  Why?  Because using Redis for analytics is spectacular!
+
+Redistat provides a interface for storing, retriveing, and aggregating time intervalled data.  Applications of Redistat include developing snappy dashboards containing daily / monthly / yearly counts over time.  Additionally Redistat allows for the "mashing-up" of different statistics, allowing the drilling down of data into specific subgroups (such as "Number of unique customers who are also male, android users...etc").
+
+Redistat is backed by [Redis](http://redis.io) - so it's super fast.
 
 Installation
 ------------
@@ -47,8 +51,7 @@ end
 The class must inherit from Redistat::Model and provide some attributes:
 * **type:** *Required*.  The data type of the model.  Valid values include:
   * :counter
-  * :unique
-  * :mosaic (more on types [below](https://github.com/bellycard/redistat#redistat-types)).
+  * :unique (more on types [below](https://github.com/bellycard/redistat#redistat-types)).
 * **resolution:** *Optional*.  The degree of fidelity you would like to store this model at.  Valid values include:
   * :days
   * :weeks
@@ -155,7 +158,68 @@ Unique counters also support querying mutiple ids.  For example, we can find the
 Customers.aggregate(id: [1,2,3], start_date: '2014-01-01', end_date: '2014-01-05', interval: :days)
 ```
 
-#### Mosaics
+#### Attributes
+
+Attributes are unique counters that are not associated with an id, and can be thought of as a type of "global" group.  This can be mashed up with other unique counters that are associated with ids to give the same result as if they were associated with that id.  The main advantages to using this technique are:
+
+* Save a tremendous amount of memory by not storing this data, for ever resolution interval, for every id
+* Easier to update / maintain / rebuilding data is much quicker ( instead of having to update at every interval / id, you can just update it once at the "global" level)
+
+This is best explained with the example below.
+
+Say you have a unique counter "Customers", and a unique couner "Males".  Instead of storing them both at the id & daily level we can get the number of males / day / id with the following:
+
+```ruby
+class Customers < Redistat::Model
+  type :unique
+  resolution :days
+end
+
+class Males < Redistat::Model
+  type :unique
+end
+```
+
+then to mash up Customers against Males, just use the attributes parameter:
+
+```ruby
+Customers.aggregate(id: 1, start_date: '2014-01-01', end_date: '204-01-09', attrbiutes: [:males])
+```
+
+You can even mash up multiple attributes.  Suppose I want to see all the customers who are Male and Android Users.  First add the AndroidUsers class:
+
+```ruby
+class AndroidUsers < Redistat::Model
+  type :unique
+end
+```
+
+then just add that into the query:
+
+```ruby
+Customers.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-09', attributes: [:males, :android_users])
+```
+
+and just like every other example, attributes can be used in aggregations accross multiple ids:
+
+```ruby
+Customers.aggregate(id: [1,2,3], start_date: '2014-01-01', end_date: '2014-01-09', attributes: [:males, :android_users])
+```
+
+All the methods available to unique counters can be used for unique counters acting as global attributes, with a few simplifications.  Obviously, if it does not have a resolution and is not associated with an id, then there is no need to pass those parameters into any of those.
+
+For example, adding / removing a unique_id to a global attribute set:
+
+```ruby
+Males.increment(unique_id: 1000)
+Males.decrement(unique_id: 1000)
+```
+
+or seeing if a unique_id is in a global set:
+
+```ruby
+Males.find(unique_id: 1000)
+```
 
 ### Misc
 
@@ -189,6 +253,12 @@ Performance
 
 Contributing
 ------------
+
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Added some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create new Pull Request
 
 TODOS
 -----

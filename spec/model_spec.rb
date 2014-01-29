@@ -1,10 +1,10 @@
 require 'spec_helper'
 
-describe Redistat::Model do
+describe Redtastic::Model do
 
   it 'validates type' do
     expect do
-      class InvalidType < Redistat::Model
+      class InvalidType < Redtastic::Model
         type :foo
       end
     end.to raise_error(RuntimeError, 'foo is not a valid type')
@@ -12,7 +12,7 @@ describe Redistat::Model do
 
   it 'validates resolution' do
     expect do
-      class InvalidResolution < Redistat::Model
+      class InvalidResolution < Redtastic::Model
         type :counter
         resolution :foo
       end
@@ -21,12 +21,12 @@ describe Redistat::Model do
 
   context 'counter' do
     before do
-      class Visits < Redistat::Model
+      class Visits < Redtastic::Model
         type :counter
         resolution :days
       end
 
-      class NoResolutions < Redistat::Model
+      class NoResolutions < Redtastic::Model
         type :counter
       end
 
@@ -47,26 +47,26 @@ describe Redistat::Model do
         end
 
         it 'increments the daily key' do
-          expect(Redistat::Connection.redis.hget(@day_key, @index)).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('1')
         end
 
         it 'increments the weekly key' do
-          expect(Redistat::Connection.redis.hget(@week_key, @index)).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@week_key, @index)).to eq('1')
         end
 
         it 'increments the monthly key' do
-          expect(Redistat::Connection.redis.hget(@month_key, @index)).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@month_key, @index)).to eq('1')
         end
 
         it 'increments the yearly key' do
-          expect(Redistat::Connection.redis.hget(@year_key, @index)).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@year_key, @index)).to eq('1')
         end
       end
 
       context 'a model with no resolution' do
         it 'increments the key' do
           NoResolutions.increment(id: @id)
-          expect(Redistat::Connection.redis.hget(@no_resolution_key, @index)).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@no_resolution_key, @index)).to eq('1')
         end
       end
 
@@ -77,33 +77,33 @@ describe Redistat::Model do
         end
 
         it 'increments the keys for each id' do
-          expect(Redistat::Connection.redis.hget(@day_key, '1')).to eq('1')
-          expect(Redistat::Connection.redis.hget(@day_key, '2')).to eq('1')
-          expect(Redistat::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@day_key, '1')).to eq('1')
+          expect(Redtastic::Connection.redis.hget(@day_key, '2')).to eq('1')
+          expect(Redtastic::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('1')
         end
       end
     end
 
     describe '#decrement' do
       before do
-        Redistat::Connection.redis.hset(@day_key, @index, '1')
+        Redtastic::Connection.redis.hset(@day_key, @index, '1')
         Visits.decrement(timestamp: @timestamp, id: @id)
       end
 
       context 'a model with a resolution' do
         it 'decrements the key' do
-          expect(Redistat::Connection.redis.hget(@day_key, @index)).to eq('0')
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('0')
         end
       end
 
       context 'a model with no resolution' do
         before do
-          Redistat::Connection.redis.hset(@no_resolution_key, @index, '1')
+          Redtastic::Connection.redis.hset(@no_resolution_key, @index, '1')
           NoResolutions.decrement(id: @id)
         end
 
         it 'decrements the key' do
-          expect(Redistat::Connection.redis.hget(@no_resolution_key, @index)).to eq('0')
+          expect(Redtastic::Connection.redis.hget(@no_resolution_key, @index)).to eq('0')
         end
       end
 
@@ -114,9 +114,9 @@ describe Redistat::Model do
         end
 
         it 'decrements the keys for each id' do
-          expect(Redistat::Connection.redis.hget(@day_key, '1')).to eq('-1')
-          expect(Redistat::Connection.redis.hget(@day_key, '2')).to eq('-1')
-          expect(Redistat::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('-1')
+          expect(Redtastic::Connection.redis.hget(@day_key, '1')).to eq('-1')
+          expect(Redtastic::Connection.redis.hget(@day_key, '2')).to eq('-1')
+          expect(Redtastic::Connection.redis.hget('app1:visits:2014-01-05:2', '3')).to eq('-1')
         end
       end
     end
@@ -171,37 +171,37 @@ describe Redistat::Model do
     describe '#aggregate' do
       context 'when no interval specified' do
         it 'returns the total over the date range' do
-          9.times { |day| Redistat::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:1", '1', 1) }
+          9.times { |day| Redtastic::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:1", '1', 1) }
           res = Visits.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(res).to eq(9)
         end
 
         it 'returns the correct total over the date range when resolution is weeks' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :counter
             resolution :weeks
           end
-          3.times { |num| Redistat::Connection.redis.hincrby("app1:foo:2014-W#{num}:1", '1', 1) }
+          3.times { |num| Redtastic::Connection.redis.hincrby("app1:foo:2014-W#{num}:1", '1', 1) }
           res = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(res).to eq(2)
         end
 
         it 'returns the correct total over the date range when the resolution is months' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :counter
             resolution :months
           end
-          3.times { Redistat::Connection.redis.hincrby('app1:foo:2014-01:1', '1', 1) }
+          3.times { Redtastic::Connection.redis.hincrby('app1:foo:2014-01:1', '1', 1) }
           res = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(res).to eq(3)
         end
 
         it 'returns the correct total over the date range when resolution is yearly' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :counter
             resolution :years
           end
-          3.times { Redistat::Connection.redis.hincrby('app1:foo:2014:1', '1', 1) }
+          3.times { Redtastic::Connection.redis.hincrby('app1:foo:2014:1', '1', 1) }
           res = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(res).to eq(3)
         end
@@ -316,8 +316,8 @@ describe Redistat::Model do
 
       context 'mutiple ids' do
         before do
-          9.times { |day| Redistat::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:1", '1', 1) }
-          3.times { |day| Redistat::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:2", '3', 1) }
+          9.times { |day| Redtastic::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:1", '1', 1) }
+          3.times { |day| Redtastic::Connection.redis.hincrby("app1:visits:2014-01-0#{day + 1}:2", '3', 1) }
           @params = { start_date: '2014-01-01', end_date: '2014-01-09', id: [1001, 2003] }
         end
 
@@ -356,7 +356,7 @@ describe Redistat::Model do
 
   context 'unique counter' do
     before do
-      class Customers < Redistat::Model
+      class Customers < Redtastic::Model
         type :unique
         resolution :days
       end
@@ -378,23 +378,23 @@ describe Redistat::Model do
         end
 
         it 'adds user 1 to the set' do
-          expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember(@day_key, @user1)).to be true
         end
 
         it 'adds user 2 to the set' do
-          expect(Redistat::Connection.redis.sismember(@day_key, @user2)).to be true
+          expect(Redtastic::Connection.redis.sismember(@day_key, @user2)).to be true
         end
 
         it 'adds user 1 to the weekly set' do
-          expect(Redistat::Connection.redis.sismember(@week_key, @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember(@week_key, @user1)).to be true
         end
 
         it 'adds user 1 to the monthly set' do
-          expect(Redistat::Connection.redis.sismember(@month_key, @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember(@month_key, @user1)).to be true
         end
 
         it 'adds user 1 to the yearly set' do
-          expect(Redistat::Connection.redis.sismember(@year_key, @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember(@year_key, @user1)).to be true
         end
       end
 
@@ -405,8 +405,8 @@ describe Redistat::Model do
         end
 
         it 'increments bits on both keys' do
-          expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
-          expect(Redistat::Connection.redis.sismember('app1:customers:2014-01-05:1002', @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember(@day_key, @user1)).to be true
+          expect(Redtastic::Connection.redis.sismember('app1:customers:2014-01-05:1002', @user1)).to be true
         end
       end
     end
@@ -414,14 +414,14 @@ describe Redistat::Model do
     describe '#decrement' do
       before do
         # First add user 1
-        Redistat::Connection.redis.sadd(@day_key, @user1)
+        Redtastic::Connection.redis.sadd(@day_key, @user1)
       end
 
       it 'decrements user1 removing it from the set' do
         # Make sure it was properly added first
-        expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be true
+        expect(Redtastic::Connection.redis.sismember(@day_key, @user1)).to be true
         Customers.decrement(id: @id, timestamp: @timestamp, unique_id: @user1)
-        expect(Redistat::Connection.redis.sismember(@day_key, @user1)).to be false
+        expect(Redtastic::Connection.redis.sismember(@day_key, @user1)).to be false
       end
     end
 
@@ -469,41 +469,41 @@ describe Redistat::Model do
     describe '#aggregate' do
       context 'when no interval is specified' do
         it 'returns the total over the date range' do
-          9.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user1) }
-          3.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user2) }
+          9.times { |day| Redtastic::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user1) }
+          3.times { |day| Redtastic::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user2) }
           result = Customers.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(result).to eq(2)
         end
 
         it 'returns the correct total over the date range when the resolution is weeks' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :unique
             resolution :weeks
           end
-          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user1) }
-          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user2) }
+          3.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user1) }
+          2.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014-W#{num}:#{@id}", @user2) }
           result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(result).to eq(2)
         end
 
         it 'returns the correct total over the date range when the resolution is months' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :unique
             resolution :months
           end
-          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user1) }
-          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user2) }
+          3.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user1) }
+          2.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014-01:#{@id}", @user2) }
           result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(result).to eq(2)
         end
 
         it 'returns the correct total over the date range when the resolution is years' do
-          class Foo < Redistat::Model
+          class Foo < Redtastic::Model
             type :unique
             resolution :years
           end
-          3.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014:#{@id}", @user1) }
-          2.times { |num| Redistat::Connection.redis.sadd("app1:foo:2014:#{@id}", @user2) }
+          3.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014:#{@id}", @user1) }
+          2.times { |num| Redtastic::Connection.redis.sadd("app1:foo:2014:#{@id}", @user2) }
           result = Foo.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(result).to eq(2)
         end
@@ -634,14 +634,14 @@ describe Redistat::Model do
 
   context 'attributes' do
     before do
-      class Customers < Redistat::Model
+      class Customers < Redtastic::Model
         type        :unique
         resolution  :days
       end
-      class Males < Redistat::Model
+      class Males < Redtastic::Model
         type :unique
       end
-      class Mobile < Redistat::Model
+      class Mobile < Redtastic::Model
         type :unique
       end
       @user1         = 1111
@@ -657,12 +657,12 @@ describe Redistat::Model do
       end
 
       it 'adds user1 to the set' do
-        result = Redistat::Connection.redis.sismember(@attribute_key, @user1)
+        result = Redtastic::Connection.redis.sismember(@attribute_key, @user1)
         expect(result).to be true
       end
 
       it 'adds user2 to the set' do
-        result = Redistat::Connection.redis.sismember(@attribute_key, @user2)
+        result = Redtastic::Connection.redis.sismember(@attribute_key, @user2)
         expect(result).to be true
       end
     end
@@ -674,7 +674,7 @@ describe Redistat::Model do
 
       it 'adds user1 to the set' do
         Males.decrement(unique_id: @user1)
-        result = Redistat::Connection.redis.sismember(@attribute_key, @user1)
+        result = Redtastic::Connection.redis.sismember(@attribute_key, @user1)
         expect(result).to be false
       end
     end
@@ -698,9 +698,9 @@ describe Redistat::Model do
         Males.increment(unique_id: @user1)
         Males.increment(unique_id: @user2)
         Mobile.increment(unique_id: @user2)
-        9.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{2222}", @user1) }
-        3.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user2) }
-        3.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user3) }
+        9.times{ |day| Redtastic::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{2222}", @user1) }
+        3.times{ |day| Redtastic::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user2) }
+        3.times{ |day| Redtastic::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user3) }
         @params = { id: [1111, 2222], start_date: '2014-01-01', end_date: '2014-01-09' }
         @attributes = []
       end

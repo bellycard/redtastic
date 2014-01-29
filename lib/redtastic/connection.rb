@@ -7,7 +7,7 @@ module Redtastic
       def establish_connection(connection, namespace = nil)
         @redis      = connection
         @namespace  = namespace
-        Redtastic::ScriptManager.load_scripts('./lib/Redtastic/scripts')
+        Redtastic::ScriptManager.load_scripts('./lib/redtastic/scripts')
       end
     end
   end

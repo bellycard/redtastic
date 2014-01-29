@@ -40,7 +40,7 @@ module Redistat
         params.merge!(timestamp: timestamp)
 
         # Handle multiple ids
-        ids = id_param_to_array(params[:id])
+        ids = param_to_array(params[:id])
 
         ids.each do |id|
           params[:id] = id
@@ -89,7 +89,8 @@ module Redistat
             argv << key_data[1].shift # Only need the # of business ids (which is 1st element) from key_data[1]
             argv << temp_key
             if params[:attributes].present?
-              params[:attributes].each do |attribute|
+              attributes = param_to_array(params[:attributes])
+              attributes.each do |attribute|
                 keys << attribute_key(attribute)
                 argv << 1
               end
@@ -119,7 +120,8 @@ module Redistat
             argv = []
             argv << temp_key
             if params[:attributes].present?
-              params[:attributes].each do |attribute|
+              attributes = param_to_array(params[:attributes])
+              attributes.each do |attribute|
                 keys << attribute_key(attribute)
                 argv << 1
               end
@@ -151,7 +153,7 @@ module Redistat
           argv = []
 
           # Handle multiple keys
-          ids = id_param_to_array(params[:id])
+          ids = param_to_array(params[:id])
 
           ids.each do |id|
             params[:id] = id
@@ -173,7 +175,7 @@ module Redistat
           keys  = []
           dates = []
           argv  = []
-          ids   = id_param_to_array(params[:id])
+          ids   = param_to_array(params[:id])
 
           argv << ids.size
           start_date = Date.parse(params[:start_date]) if params[:start_date].is_a?(String)
@@ -263,9 +265,9 @@ module Redistat
           end
         end
 
-        def id_param_to_array(param_id)
-          ids = []
-          param_id.is_a?(Array) ? ids = param_id : ids << param_id
+        def param_to_array(param)
+          result = []
+          param.is_a?(Array) ? result = param : result << param
         end
 
         def temp_key

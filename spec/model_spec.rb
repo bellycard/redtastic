@@ -712,6 +712,11 @@ describe Redistat::Model do
             result = Customers.aggregate(@params.merge!(attributes: @attributes))
             expect(result).to eq(2)
           end
+
+          it 'does not require use of an array if specifying only one attribute' do
+            result = Customers.aggregate(@params.merge!(attributes: :males))
+            expect(result).to eq(2)
+          end
         end
 
         context 'and multiple attributes are specified' do

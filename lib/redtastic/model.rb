@@ -1,4 +1,4 @@
-module Redistat
+module Redtastic
   class Model
     class << self
       # Recording
@@ -8,9 +8,9 @@ module Redistat
         if @_type == :unique
           argv = []
           argv << params[:unique_id]
-          Redistat::ScriptManager.msadd(key_data[0], argv)
+          Redtastic::ScriptManager.msadd(key_data[0], argv)
         else
-          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
         end
       end
 
@@ -19,9 +19,9 @@ module Redistat
         if @_type == :unique
           argv = []
           argv << params[:unique_id]
-          Redistat::ScriptManager.msrem(key_data[0], argv)
+          Redtastic::ScriptManager.msrem(key_data[0], argv)
         else
-          Redistat::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
         end
       end
 
@@ -51,9 +51,9 @@ module Redistat
         if @_type == :unique
           unique_argv = []
           unique_argv << params[:unique_id]
-          result = Redistat::ScriptManager.msismember(keys, unique_argv)
+          result = Redtastic::ScriptManager.msismember(keys, unique_argv)
         else
-          result = Redistat::ScriptManager.hmfind(keys, argv)
+          result = Redtastic::ScriptManager.hmfind(keys, argv)
         end
 
         # If only for a single id, just return the value rather than an array
@@ -95,9 +95,9 @@ module Redistat
                 argv << 1
               end
             end
-            data_points = Redistat::ScriptManager.union_data_points_for_keys(keys, argv)
+            data_points = Redtastic::ScriptManager.union_data_points_for_keys(keys, argv)
           else
-            data_points = Redistat::ScriptManager.data_points_for_keys(keys, key_data[1])
+            data_points = Redtastic::ScriptManager.data_points_for_keys(keys, key_data[1])
           end
 
           result = HashWithIndifferentAccess.new
@@ -126,10 +126,10 @@ module Redistat
                 argv << 1
               end
             end
-            Redistat::ScriptManager.msunion(keys, argv)
+            Redtastic::ScriptManager.msunion(keys, argv)
           else
             key_data[1].shift # Remove the number of ids from the argv array (don't need it in the sum method)
-            Redistat::ScriptManager.sum(keys, key_data[1]).to_i
+            Redtastic::ScriptManager.sum(keys, key_data[1]).to_i
           end
         end
       end
@@ -203,7 +203,7 @@ module Redistat
 
         def key(params, interval = nil)
           key = ''
-          key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
+          key += "#{Redtastic::Connection.namespace}:" if Redtastic::Connection.namespace.present?
           key += "#{model_name}"
           if params[:timestamp].present?
             timestamp = params[:timestamp]
@@ -277,7 +277,7 @@ module Redistat
 
         def attribute_key(attribute)
           key = ''
-          key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
+          key += "#{Redtastic::Connection.namespace}:" if Redtastic::Connection.namespace.present?
           key + attribute.to_s
         end
     end

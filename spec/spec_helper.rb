@@ -6,7 +6,7 @@ end
 require 'coveralls'
 Coveralls.wear!
 
-require 'redistat'
+require 'redtastic'
 require 'dotenv'
 
 # Using a mock redis library (such as fakeredis) for testing does not work in this situation, since it does
@@ -20,7 +20,7 @@ redis = Redis.new(host: 'localhost', port: ENV['REDIS_PORT'])
 
 RSpec.configure do |config|
   config.before(:each) do
-    Redistat::Connection.establish_connection(redis, 'app1')
-    Redistat::Connection.redis.flushdb
+    Redtastic::Connection.establish_connection(redis, 'app1')
+    Redtastic::Connection.redis.flushdb
   end
 end

@@ -1,23 +1,23 @@
-Redistat [![Build Status](https://travis-ci.org/bellycard/redistat.png?branch=master)](https://travis-ci.org/bellycard/redistat) [![Coverage Status](https://coveralls.io/repos/bellycard/redistat/badge.png?branch=master)](https://coveralls.io/r/bellycard/redistat?branch=master)
+Redtastic [![Build Status](https://travis-ci.org/bellycard/redtastic.png?branch=master)](https://travis-ci.org/bellycard/redtastic) [![Coverage Status](https://coveralls.io/repos/bellycard/redtastic/badge.png?branch=master)](https://coveralls.io/r/bellycard/redtastic?branch=master)
 ========
 
-Redistat!  Why?  Because using Redis for analytics is spectacular!
+Redtastic!  Why?  Because using Redis for analytics is fantastic!
 
-Redistat provides a interface for storing, retriveing, and aggregating time intervalled data.  Applications of Redistat include developing snappy dashboards containing daily / monthly / yearly counts over time.  Additionally Redistat allows for the "mashing-up" of different statistics, allowing the drilling down of data into specific subgroups (such as "Number of unique customers who are also male, android users...etc").
+Redtastic provides a interface for storing, retriveing, and aggregating time intervalled data.  Applications of Redtastic include developing snappy dashboards containing daily / monthly / yearly counts over time.  Additionally Redtastic allows for the "mashing-up" of different statistics, allowing the drilling down of data into specific subgroups (such as "Number of unique customers who are also male, android users...etc").
 
-Redistat is backed by [Redis](http://redis.io) - so it's super fast.
+Redtastic is backed by [Redis](http://redis.io) - so it's super fast.
 
 Installation
 ------------
 
 ```
-$ gem install redistat
+$ gem install redtastic
 ```
 
 or in your **Gemfile**
 
 ``` ruby
-gem 'redistat'
+gem 'redtastic'
 ```
 
 and run:
@@ -26,32 +26,32 @@ and run:
 $ bundle install
 ```
 
-Then initialize redistat in your application & connect it with a redis instance:
+Then initialize Redtastic in your application & connect it with a redis instance:
 
 ``` ruby
 $redis = Redis.new
-Redistat::Connection.establish_connection($redis, 'namespace')
+Redtastic::Connection.establish_connection($redis, 'namespace')
 ```
 \* *specifying a namespace is optional and is used to avoid key collisions if multiple applications are using the same instance of Redis.*
 
 Usage
 -----
 
-### Defining a Redistat Model
+### Defining a Redtastic Model
 
-First, create a Redistat Model:
+First, create a Redtastic Model:
 
 ``` ruby
-class Checkins < Redistat::Model
+class Checkins < Redtastic::Model
   type :counter
   resolution :days
 end
 ```
 
-The class must inherit from Redistat::Model and provide some attributes:
+The class must inherit from Redtastic::Model and provide some attributes:
 * **type:** *Required*.  The data type of the model.  Valid values include:
   * :counter
-  * :unique (more on types [below](https://github.com/bellycard/redistat#redistat-types)).
+  * :unique (more on types [below](https://github.com/bellycard/Redtastic#Redtastic-types)).
 * **resolution:** *Optional*.  The degree of fidelity you would like to store this model at.  Valid values include:
   * :days
   * :weeks
@@ -61,7 +61,7 @@ The class must inherit from Redistat::Model and provide some attributes:
 
 \* *Note that methods requesting results at a higher resolution than that of the model will not work.  Using a lower resolution will result in less memory utilization and will generally see faster query response times.*
 
-### Using Redistat Models
+### Using Redtastic Models
 
 Incrementing / decrementing counters:
 
@@ -120,7 +120,7 @@ As well as aggregating across mutiple ids w/ data points at the specified interv
 Checkins.aggregate(id: [1001, 1002, 2003], start_date: '2013-01-01', end_date: '2014-01-05', interval: :days)
 ```
 
-### Redistat Types
+### Redtastic Types
 
 #### Counters
 
@@ -170,12 +170,12 @@ This is best explained with the example below.
 Say you have a unique counter "Customers", and a unique couner "Males".  Instead of storing them both at the id & daily level we can get the number of males / day / id with the following:
 
 ```ruby
-class Customers < Redistat::Model
+class Customers < Redtastic::Model
   type :unique
   resolution :days
 end
 
-class Males < Redistat::Model
+class Males < Redtastic::Model
   type :unique
 end
 ```
@@ -189,7 +189,7 @@ Customers.aggregate(id: 1, start_date: '2014-01-01', end_date: '204-01-09', attr
 You can even mash up multiple attributes.  Suppose I want to see all the customers who are Male and Android Users.  First add the AndroidUsers class:
 
 ```ruby
-class AndroidUsers < Redistat::Model
+class AndroidUsers < Redtastic::Model
   type :unique
 end
 ```
@@ -225,27 +225,27 @@ Males.find(unique_id: 1000)
 
 #### Script Manager
 
-Redistat also provides access to the *Redistat::ScriptManager* class which it uses internally to pre-load & provide an interface to running Lua Scripts on Redis.  Although it is used by Redistat to run its own scripts, anybody can use it to run their own custom scripts defined in their application:
+Redtastic also provides access to the *Redtastic::ScriptManager* class which it uses internally to pre-load & provide an interface to running Lua Scripts on Redis.  Although it is used by Redtastic to run its own scripts, anybody can use it to run their own custom scripts defined in their application:
 
 Create a script: *./lib/scripts/hello.lua*
 ``` lua
 return 'hello'
 ```
-Tell ScriptManager to pre-load your scripts (after initializing Redistat)
+Tell ScriptManager to pre-load your scripts (after initializing Redtastic)
 ``` ruby
-Redistat::ScriptManager.load_scripts('./lib/scripts')
+Redtastic::ScriptManager.load_scripts('./lib/scripts')
 ```
 
 Now you can easily use your script anywhere in your application:
 ``` ruby
-puts Redistat::ScriptManager.hello # prints 'hello'
+puts Redtastic::ScriptManager.hello # prints 'hello'
 ```
 
 with every script having the ability to accept parameters for the KEYS & ARGV arrays:
 ```ruby
   keys = []
   argv = []
-  Redistat::ScriptManager.hello(keys, argv)
+  Redtastic::ScriptManager.hello(keys, argv)
 ```
 
 Performance

@@ -2,7 +2,7 @@
 require File.expand_path('../lib/redtastic/version', __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.name         = 'Redtastic'
+  gem.name         = 'redtastic'
   gem.version      = Redtastic::VERSION
   gem.date         = '2013-01-15'
   gem.authors      = ['Joe DiVita']

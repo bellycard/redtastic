@@ -471,7 +471,6 @@ describe Redistat::Model do
         it 'returns the total over the date range' do
           9.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user1) }
           3.times { |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{@id}", @user2) }
-          result = Redistat::Connection.redis.sunion("app1:customers:")
           result = Customers.aggregate(start_date: '2014-01-01', end_date: '2014-01-09', id: @id)
           expect(result).to eq(2)
         end
@@ -627,6 +626,148 @@ describe Redistat::Model do
           it 'returns the correct data for each point in the interval' do
             3.times { |num| expect(@result[:days][num][:customers]).to eq(2) }
             (3..8).each { |num| expect(@result[:days][num][:customers]).to eq(1) }
+          end
+        end
+      end
+    end
+  end
+
+  context 'attributes' do
+    before do
+      class Customers < Redistat::Model
+        type        :unique
+        resolution  :days
+      end
+      class Males < Redistat::Model
+        type :unique
+      end
+      class Mobile < Redistat::Model
+        type :unique
+      end
+      @user1         = 1111
+      @user2         = 2222
+      @user3         = 3333
+      @attribute_key = 'app1:males'
+    end
+
+    describe '#increment' do
+      before do
+        Males.increment(unique_id: @user1)
+        Males.increment(unique_id: @user2)
+      end
+
+      it 'adds user1 to the set' do
+        result = Redistat::Connection.redis.sismember(@attribute_key, @user1)
+        expect(result).to be true
+      end
+
+      it 'adds user2 to the set' do
+        result = Redistat::Connection.redis.sismember(@attribute_key, @user2)
+        expect(result).to be true
+      end
+    end
+
+    describe '#decrement' do
+      before do
+        Males.increment(unique_id: @user1)
+      end
+
+      it 'adds user1 to the set' do
+        Males.decrement(unique_id: @user1)
+        result = Redistat::Connection.redis.sismember(@attribute_key, @user1)
+        expect(result).to be false
+      end
+    end
+
+    describe '#find' do
+      before do
+        Males.increment(unique_id: @user1)
+      end
+
+      it 'returns 1 for a unique_id that is in the attribute set' do
+        expect(Males.find(unique_id: @user1)).to eq(1)
+      end
+
+      it 'returns 0 for a unique_id that is not in the attribute set' do
+        expect(Males.find(unique_id: @user2)).to eq(0)
+      end
+    end
+
+    describe '#aggregate' do
+      before do
+        Males.increment(unique_id: @user1)
+        Males.increment(unique_id: @user2)
+        Mobile.increment(unique_id: @user2)
+        9.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{2222}", @user1) }
+        3.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user2) }
+        3.times{ |day| Redistat::Connection.redis.sadd("app1:customers:2014-01-0#{day + 1}:#{1111}", @user3) }
+        @params = { id: [1111, 2222], start_date: '2014-01-01', end_date: '2014-01-09' }
+        @attributes = []
+      end
+
+      context 'when no interval is specified' do
+        context 'and single attribute is specified' do
+          it 'returns the total over the date range' do
+            @attributes << :males
+            result = Customers.aggregate(@params.merge!(attributes: @attributes))
+            expect(result).to eq(2)
+          end
+
+          it 'does not require use of an array if specifying only one attribute' do
+            result = Customers.aggregate(@params.merge!(attributes: :males))
+            expect(result).to eq(2)
+          end
+        end
+
+        context 'and multiple attributes are specified' do
+          it 'returns the total over the date range' do
+            @attributes << :males
+            @attributes << :mobile
+            result = Customers.aggregate(@params.merge!(attributes: @attributes))
+            expect(result).to eq(1)
+          end
+        end
+      end
+
+      context 'when interval is specified' do
+        context 'and single attribute is specified' do
+          before do
+            @attributes << :males
+            @result = Customers.aggregate(@params.merge!(attributes: @attributes, interval: :days))
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(2)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:days].size).to eq(9)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            3.times { |num| expect(@result[:days][num][:customers]).to eq(2) }
+            6.times { |num| expect(@result[:days][num + 3][:customers]).to eq(1) }
+          end
+        end
+
+        context 'and multiple attributes are specified' do
+          before do
+            @attributes << :males
+            @attributes << :mobile
+            @result = Customers.aggregate(@params.merge!(attributes: @attributes, interval: :days))
+          end
+
+          it 'returns the total over the date range' do
+            expect(@result[:customers]).to eq(1)
+          end
+
+          it 'returns the proper amount of data points' do
+            expect(@result[:days].size).to eq(9)
+          end
+
+          it 'returns the correct data for each point in the interval' do
+            3.times { |num| expect(@result[:days][num][:customers]).to eq(1) }
+            6.times { |num| expect(@result[:days][num + 3][:customers]).to eq(0) }
           end
         end
       end

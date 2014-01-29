@@ -40,7 +40,7 @@ module Redistat
         params.merge!(timestamp: timestamp)
 
         # Handle multiple ids
-        ids = id_param_to_array(params[:id])
+        ids = param_to_array(params[:id])
 
         ids.each do |id|
           params[:id] = id
@@ -88,6 +88,13 @@ module Redistat
             argv = []
             argv << key_data[1].shift # Only need the # of business ids (which is 1st element) from key_data[1]
             argv << temp_key
+            if params[:attributes].present?
+              attributes = param_to_array(params[:attributes])
+              attributes.each do |attribute|
+                keys << attribute_key(attribute)
+                argv << 1
+              end
+            end
             data_points = Redistat::ScriptManager.union_data_points_for_keys(keys, argv)
           else
             data_points = Redistat::ScriptManager.data_points_for_keys(keys, key_data[1])
@@ -112,6 +119,13 @@ module Redistat
           if @_type == :unique
             argv = []
             argv << temp_key
+            if params[:attributes].present?
+              attributes = param_to_array(params[:attributes])
+              attributes.each do |attribute|
+                keys << attribute_key(attribute)
+                argv << 1
+              end
+            end
             Redistat::ScriptManager.msunion(keys, argv)
           else
             key_data[1].shift # Remove the number of ids from the argv array (don't need it in the sum method)
@@ -139,7 +153,7 @@ module Redistat
           argv = []
 
           # Handle multiple keys
-          ids = id_param_to_array(params[:id])
+          ids = param_to_array(params[:id])
 
           ids.each do |id|
             params[:id] = id
@@ -161,7 +175,7 @@ module Redistat
           keys  = []
           dates = []
           argv  = []
-          ids   = id_param_to_array(params[:id])
+          ids   = param_to_array(params[:id])
 
           argv << ids.size
           start_date = Date.parse(params[:start_date]) if params[:start_date].is_a?(String)
@@ -190,17 +204,18 @@ module Redistat
         def key(params, interval = nil)
           key = ''
           key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
-          key += "#{model_name}:"
+          key += "#{model_name}"
           if params[:timestamp].present?
             timestamp = params[:timestamp]
             timestamp = formatted_timestamp(params[:timestamp], interval) if interval.present?
-            key += "#{timestamp}:"
+            key += ":#{timestamp}"
           end
           if @_type == :counter
-            key + "#{bucket(params[:id])}"
+            key += ":#{bucket(params[:id])}"
           else
-            key + "#{params[:id]}"
+            key += ":#{params[:id]}" if params[:id].present?
           end
+          key
         end
 
         def formatted_timestamp(timestamp, interval)
@@ -224,7 +239,7 @@ module Redistat
         end
 
         def index(id)
-          id % 1000
+          id % 1000 if id.is_a?(Integer)
         end
 
         def zeros(number)
@@ -250,14 +265,20 @@ module Redistat
           end
         end
 
-        def id_param_to_array(param_id)
-          ids = []
-          param_id.is_a?(Array) ? ids = param_id : ids << param_id
+        def param_to_array(param)
+          result = []
+          param.is_a?(Array) ? result = param : result << param
         end
 
         def temp_key
           seed = Array.new(8) { [*'a'..'z'].sample }.join
           "temp:#{seed}"
+        end
+
+        def attribute_key(attribute)
+          key = ''
+          key += "#{Redistat::Connection.namespace}:" if Redistat::Connection.namespace.present?
+          key + attribute.to_s
         end
     end
   end

@@ -2,15 +2,17 @@
 require File.expand_path('../lib/redtastic/version', __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.name         = 'redtastic'
-  gem.version      = Redtastic::VERSION
-  gem.date         = '2013-01-15'
-  gem.authors      = ['Joe DiVita']
-  gem.email        = ['joediv31@gmail.com']
-  gem.description  = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
-  gem.summary      = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
-  gem.homepage     = 'https://github.com/bellycard/redtastic'
-  gem.files        = ['lib/redtastic.rb']
+  gem.name          = 'redtastic'
+  gem.version       = Redtastic::VERSION
+  gem.date          = '2013-01-15'
+  gem.authors       = ['Joe DiVita']
+  gem.email         = ['joediv31@gmail.com']
+  gem.description   = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
+  gem.summary       = %q{ A simple, Redis-backed interface for storing, retrieving, and aggregating analytics }
+  gem.homepage      = 'https://github.com/bellycard/redtastic'
+  gem.files         = `git ls-files`.split($\)
+  gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
+  gem.require_paths = ["lib"]
 
   gem.add_dependency 'redis'
   gem.add_dependency 'activesupport'

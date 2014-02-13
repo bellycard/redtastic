@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    Redtastic (0.2.0)
+    redtastic (0.2.1)
       activesupport
       redis
 
@@ -74,11 +74,11 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  Redtastic!
   coveralls
   dotenv
   git
   pry
+  redtastic!
   rspec
   rubocop
   simplecov

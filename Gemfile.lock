@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    redtastic (0.2.1)
+    redtastic (0.2.2)
       activesupport
       redis
 
@@ -41,7 +41,7 @@ GEM
       method_source (~> 0.8)
       slop (~> 3.4)
     rainbow (1.99.1)
-    redis (3.0.6)
+    redis (3.0.7)
     rest-client (1.6.7)
       mime-types (>= 1.16)
     rspec (2.14.1)

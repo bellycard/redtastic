@@ -10,7 +10,12 @@ module Redtastic
           argv << params[:unique_id]
           Redtastic::ScriptManager.msadd(key_data[0], argv)
         else
-          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(1))
+          if params[:by].present?
+            increment_by = params[:by]
+          else
+            increment_by = 1
+          end
+          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(increment_by))
         end
       end
 
@@ -21,7 +26,12 @@ module Redtastic
           argv << params[:unique_id]
           Redtastic::ScriptManager.msrem(key_data[0], argv)
         else
-          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1))
+          if params[:by].present?
+            decrement_by = params[:by]
+          else
+            decrement_by = 1
+          end
+          Redtastic::ScriptManager.hmincrby(key_data[0], key_data[1].unshift(-1*decrement_by))
         end
       end
 

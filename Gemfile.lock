@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    redtastic (0.2.2)
+    redtastic (0.3.0)
       activesupport
       redis
 

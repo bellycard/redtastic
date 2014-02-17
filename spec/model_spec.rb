@@ -63,6 +63,18 @@ describe Redtastic::Model do
         end
       end
 
+      context 'when specifying the \'by\' parameter' do
+        it 'increments the key by the given amount' do
+          Visits.increment(timestamp: @timestamp, id: @id, by: 5)
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('5')
+        end
+
+        it 'allows for negative increments' do
+          Visits.increment(timestamp: @timestamp, id: @id, by: -5)
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('-5')
+        end
+      end
+
       context 'a model with no resolution' do
         it 'increments the key' do
           NoResolutions.increment(id: @id)
@@ -85,14 +97,26 @@ describe Redtastic::Model do
     end
 
     describe '#decrement' do
-      before do
-        Redtastic::Connection.redis.hset(@day_key, @index, '1')
-        Visits.decrement(timestamp: @timestamp, id: @id)
-      end
-
       context 'a model with a resolution' do
+        before do
+          Redtastic::Connection.redis.hset(@day_key, @index, '1')
+          Visits.decrement(timestamp: @timestamp, id: @id)
+        end
+
         it 'decrements the key' do
           expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('0')
+        end
+      end
+
+      context 'when specifying the \'by\' parameter' do
+        it 'decrements the key by the given amount' do
+          Visits.decrement(timestamp: @timestamp, id: @id, by: 5)
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('-5')
+        end
+
+        it 'allows for negative decrements' do
+          Visits.decrement(timestamp: @timestamp, id: @id, by: -5)
+          expect(Redtastic::Connection.redis.hget(@day_key, @index)).to eq('5')
         end
       end
 

@@ -245,11 +245,11 @@ module Redtastic
         end
 
         def bucket(id)
-          @_type == :counter ? id / 1000 : id
+          @_type == :counter ? id.to_i / 1000 : id
         end
 
         def index(id)
-          id % 1000 if id.is_a?(Integer)
+          id.to_i % 1000
         end
 
         def zeros(number)

@@ -1,4 +1,4 @@
-Redtastic [![Build Status](https://travis-ci.org/bellycard/redtastic.png?branch=master)](https://travis-ci.org/bellycard/redtastic) [![Coverage Status](https://coveralls.io/repos/bellycard/redtastic/badge.png?branch=master)](https://coveralls.io/r/bellycard/redtastic?branch=master)
+Redtastic [![Build Status](https://travis-ci.org/bellycard/redtastic.png?branch=master)](https://travis-ci.org/bellycard/redtastic) [![Coverage Status](https://coveralls.io/repos/bellycard/redtastic/badge.png?branch=master)](https://coveralls.io/r/bellycard/redtastic?branch=master) [![Gem Version](https://badge.fury.io/rb/redtastic.png)](http://badge.fury.io/rb/redtastic)
 ========
 
 Redtastic!  Why?  Because using Redis for analytics is fantastic!

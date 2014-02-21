@@ -3,9 +3,9 @@ Redtastic [![Build Status](https://travis-ci.org/bellycard/redtastic.png?branch=
 
 Redtastic!  Why?  Because using Redis for analytics is fantastic!
 
-Redtastic provides a interface for storing, retriveing, and aggregating time intervalled data.  Applications of Redtastic include developing snappy dashboards containing daily / monthly / yearly counts over time.  Additionally Redtastic allows for the "mashing-up" of different statistics, allowing the drilling down of data into specific subgroups (such as "Number of unique customers who are also male, android users...etc").
+Redtastic provides a interface for storing, retrieving, and aggregating time-intervalled data.  Applications of Redtastic include developing snappy dashboards containing daily / weekly / monthly / yearly counts over time.  Additionally Redtastic allows for the "mashing-up" of different statistics, allowing the drilling down of data into specific subgroups (such as "Number of unique customers who are also male, android users...etc").
 
-Redtastic is backed by [Redis](http://redis.io) - so it's super fast.
+Redtastic runs on [Redis](http://redis.io) - so it's super fast.
 
 Installation
 ------------
@@ -88,7 +88,29 @@ Checkins.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-05')
 Get the aggregate total + data points for each date at the specified interval:
 
 ``` ruby
-Checkins.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-05', interval: :days)
+Checkins.aggregate(id: 1, start_date: '2014-01-01', end_date: '2014-01-03', interval: :days)
+```
+
+An aggregation with the "interval" param specified returns the results in a hash:
+
+``` ruby
+{
+  checkins: 5
+  days: [
+    {
+      date: '2014-01-01',
+      checkins: 2
+    },
+    {
+      date: '2014-01-02',
+      checkins: 1
+    },
+    {
+      date: '2014-01-03',
+      checkins: 1
+    },
+  ]
+}
 ```
 
 ### Multiple Ids
@@ -124,11 +146,11 @@ Checkins.aggregate(id: [1001, 1002, 2003], start_date: '2013-01-01', end_date: '
 
 #### Counters
 
-Counters are just what they appear to be - counters of things.  Examples of using counters is shown in the previous two sections.
+Counters are just what they appear to be - counters of things.  Examples of using counters are shown in the previous two sections.
 
 #### Unique Counters
 
-Unique counters are used when an event with the same unique_id should not be counted twice. A general example of this could be a counter for the number of users that visited a place. In this case the "id" parameter would represent the id of the place and the unique_id would be the users id.
+Unique counters are used when an event with the same unique_id should not be counted twice. A general example of this could be a counter for the number of unique users that visited a place. In this case the "id" parameter would represent the id of the place and the unique_id would be the users id.
 
 **Examples**
 
@@ -251,6 +273,33 @@ with every script having the ability to accept parameters for the KEYS & ARGV ar
 Performance
 -----------
 
+### Memory Optimization
+
+For memory optimization Redtastic uses the methods outlined on [Redis's memory optimization page](http://redis.io/topics/memory-optimization).  More specifically, all counters are not stored as individual keys, but rather in "buckets" of 1000 as fields inside of a [Redis hash](http://redis.io/commands#hash).
+
+For example, if I am incrementing the a counter called "Visits" for a place with id 40231, rather than storing that counter as a key called "visits:40231", the counter would instead be located in the 40th "visit bucket" (id / 1000) labeled as key "visits:40", at hash index "231" (id % 1000).  Any other visit counters for places with the id 40xxx would be stored in this bucket.  A visualization of what part of this hash would look like is shown below:
+
+``` ruby
+"visits:40" : { ... "231": 23, "232": "0", "233":"4" ... }
+```
+
+showing the visit counter values for businesses with ids: 40231, 40232, 40233.
+
+**Important**: to take advantage of this optimization, make sure to set the hash-max-ziplist-entries config value for your Redis instance as shown below:
+
+```
+CONFIG SET hash-max-ziplist-entries 1000
+```
+
+This will allow Redis to properly optimize any hash that has less than or equal to 1000 entries.
+
+For more information check out [Instagram's blog entry](http://instagram-engineering.tumblr.com/post/12202313862/storing-hundreds-of-millions-of-simple-key-value-pairs) on how they were able to use this technique.
+
+### Lua Scripts
+
+Redtastic uses Lua scripts to perform procedures that under normal circumstances would require mutiple requests to Redis, and thus can greatly reduce the impact of network latency.  In most cases, methods invoked on a Redtastic model only involve one call to Redis (with additional queries / aggregations being done inside a Lua script durring the same Redis call).  It should be noted, as with the use of any Lua script on Redis, that caution should be taken as misuse can lead to long running scripts that will block other requests.
+
+
 Contributing
 ------------
 
@@ -263,7 +312,7 @@ Contributing
 TODOS
 -----
 * Set elapsed expiration times for each resolution of a model (ie. keys of resolution days expire in 1 year, months expire in 2 years...etc).
-* For large, multi-id aggregations, set batch size & do aggregations in serveral batches rather than all in one lua run to prevent long running lua scripts from blocking any other redis operation.
+* For large, multi-id aggregations, set batch size & do aggregations in serveral batches rather than all in one lua run to prevent long running lua scripts from blocking any other redis operations.
 * Support for hourly resolutions
 
 

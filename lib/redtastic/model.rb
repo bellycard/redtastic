@@ -253,7 +253,11 @@ module Redtastic
         end
 
         def zeros(number)
-          "0#{number}" if number < 10
+          if number < 10
+            "0#{number}"
+          else
+            number
+          end
         end
 
         def model_name

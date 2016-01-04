@@ -235,7 +235,7 @@ module Redtastic
             timestamp.strftime('%Y-%m-%d')
           when :weeks
             week_number = timestamp.cweek
-            result = timestamp.strftime('%Y')
+            result = timestamp.cwyear.to_s
             result + "-W#{week_number}"
           when :months
             timestamp.strftime('%Y-%m')

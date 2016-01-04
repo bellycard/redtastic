@@ -267,27 +267,43 @@ describe Redtastic::Model do
         end
 
         context 'and is weeks' do
-          before do
-            @params[:interval] = :weeks
-            @result = Visits.aggregate(@params)
+          context 'for weeks in the same year' do
+            before do
+              @params[:interval] = :weeks
+              @result = Visits.aggregate(@params)
+            end
+
+            it 'returns the total over the date range' do
+              expect(@result[:visits]).to eq(8)
+            end
+
+            it 'returns the proper amount of data points' do
+              expect(@result[:weeks].size).to eq(2)
+            end
+
+            it 'returns the correct data for each point in the interval' do
+              expect(@result[:weeks][0][:visits]).to eq(5)
+              expect(@result[:weeks][1][:visits]).to eq(3)
+            end
+
+            it 'returns the correct dates for each point in the interval' do
+              expect(@result[:weeks][0][:date]).to eq('2014-W1')
+              expect(@result[:weeks][1][:date]).to eq('2014-W2')
+            end
           end
 
-          it 'returns the total over the date range' do
-            expect(@result[:visits]).to eq(8)
-          end
+          context 'for weeks over two different years' do
+            before do
+              @params[:interval] = :weeks
+              @params[:start_date] = '2015-12-25'
+              @params[:end_date] = '2016-01-03'
+              @result = Visits.aggregate(@params)
+            end
 
-          it 'returns the proper amount of data points' do
-            expect(@result[:weeks].size).to eq(2)
-          end
-
-          it 'returns the correct data for each point in the interval' do
-            expect(@result[:weeks][0][:visits]).to eq(5)
-            expect(@result[:weeks][1][:visits]).to eq(3)
-          end
-
-          it 'returns the correct dates for each point in the interval' do
-            expect(@result[:weeks][0][:date]).to eq('2014-W1')
-            expect(@result[:weeks][1][:date]).to eq('2014-W2')
+            it 'returns the correct dates' do
+              expect(@result[:weeks][0][:date]).to eq('2015-W52')
+              expect(@result[:weeks][1][:date]).to eq('2015-W53')
+            end
           end
         end
 

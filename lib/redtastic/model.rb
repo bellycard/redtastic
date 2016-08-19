@@ -52,9 +52,10 @@ module Redtastic
         # Handle multiple ids
         ids = param_to_array(params[:id])
 
+        temp_params = params.dup
         ids.each do |id|
-          params[:id] = id
-          keys << key(params)
+          temp_params[:id] = id
+          keys << key(temp_params)
           argv << index(id)
         end
 
@@ -165,16 +166,17 @@ module Redtastic
           # Handle multiple keys
           ids = param_to_array(params[:id])
 
+          temp_params = params.dup
           ids.each do |id|
-            params[:id] = id
+            temp_params[:id] = id
             if params[:timestamp].present?
               # This is for an update, so we want to build a key for each resolution that is applicable to the model
               scoped_resolutions.each do |resolution|
-                keys << key(params, resolution)
+                keys << key(temp_params, resolution)
                 argv << index(id)
               end
             else
-              keys << key(params)
+              keys << key(temp_params)
               argv << index(id)
             end
           end
@@ -197,13 +199,14 @@ module Redtastic
             interval = @_resolution
           end
 
+          temp_params = params.dup
           current_date = start_date
           while current_date <= end_date
-            params[:timestamp] = current_date
+            temp_params[:timestamp] = current_date
             dates << formatted_timestamp(current_date, interval)
             ids.each do |id|
-              params[:id] = id
-              keys << key(params, interval)
+              temp_params[:id] = id
+              keys << key(temp_params, interval)
               argv << index(id)
             end
             current_date = current_date.advance(interval => +1)

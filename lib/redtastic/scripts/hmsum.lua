@@ -17,10 +17,11 @@
 
 local sum = 0
 
-for _, key in ipairs(KEYS) do
-  local value_array = redis.call('HMGET', key, unpack(ARGV))
+for i=1,#KEYS do
+  local value_array = redis.call('HMGET', KEYS[i], unpack(ARGV))
 
-  for _, elem in ipairs(value_array) do
+  for j=1,#value_array do
+    local elem = value_array[j]
     if elem then
       sum = sum + tonumber(elem)
     end
